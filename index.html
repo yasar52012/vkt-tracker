@@ -94,6 +94,20 @@ h3{font-size:14px;margin:0 0 8px;font-weight:700;letter-spacing:.04em;text-trans
 .linkbtn{background:none;border:0;color:var(--head-ink);text-decoration:underline;cursor:pointer;font-size:12px;padding:0 4px}
 .steps{margin:0;padding-left:20px}.steps li{margin-bottom:8px}
 .banner{background:var(--offer-bg);color:var(--offer-ink);border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:16px}
+.modal[hidden]{display:none}
+.modal-box{background:var(--bg);border-radius:14px;max-width:420px;width:100%;padding:14px}
+.bill{background:#fff;color:#0B3D2A;border:1px solid #CFE6D6;border-radius:10px;padding:16px;font-size:14px}
+.bhead{text-align:center;border-bottom:2px solid #15803D;padding-bottom:8px;margin-bottom:10px}
+.bname{font-weight:800;font-size:22px;color:#15803D}.bsub{font-size:12px;color:#4C6B5C}
+.bmeta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#4C6B5C;flex-wrap:wrap}
+.bcust{margin:10px 0;line-height:1.4}.bdet{margin:6px 0 10px;font-size:13px}
+.brow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #CFE6D6}.brow span:last-child{white-space:nowrap}
+.brow.off{color:#7C4A03}.btotal{font-weight:800;font-size:17px;border-bottom:0;border-top:2px solid #15803D;margin-top:4px;padding-top:8px}
+.bpay{font-size:12px;margin-top:8px}.bnote{text-align:center;margin-top:12px;font-weight:600;color:#15803D}
+.mact{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media print{body.bill-open>*:not(#billModal){display:none!important}body.bill-open{background:#fff}.modal{position:static;background:none;padding:0}.modal-box{background:none;max-width:none;padding:0}.mact{display:none!important}.bill{border:0}}
 </style>
 </head><body>
 <header class="top">
@@ -250,7 +264,8 @@ h3{font-size:14px;margin:0 0 8px;font-weight:700;letter-spacing:.04em;text-trans
 </main>
 <div id="toast" class="toast" role="status" hidden></div>
 
-
+<div id="billModal" class="modal" hidden><div class="modal-box"><div id="billSheet" class="bill"></div>
+<div class="mact"><button class="btn" id="billWa" type="button">Send on WhatsApp</button><button class="btn ghost" id="billPrint" type="button">Print / Save PDF</button><button class="btn ghost" id="billCopy" type="button">Copy text</button><button class="btn ghost" id="billClose" type="button">Close</button></div></div></div>
 <script>
 (function(){
 'use strict';
@@ -269,7 +284,8 @@ const DEFAULT_RATES={
   discountPct:50, medicine:10,
   fetch:[{upto:200,charge:30},{upto:500,charge:40},{upto:1000,charge:50},{upto:null,charge:60}],
   ride:[{km:3,day:30,night:50},{km:6,day:50,night:80},{km:10,day:80,night:120}],
-  wait:{day:15,night:20}, nightStart:21, nightEnd:6, riders:['Rider 1','Rider 2']
+  wait:{day:15,night:20}, nightStart:21, nightEnd:6, riders:['Rider 1','Rider 2'],
+  billName:'VKT Riders', billPhone:'', billUpi:'', billNote:'Thank you for choosing VKT Riders!'
 };
 const clone=o=>JSON.parse(JSON.stringify(o));
 const state={view:'new',type:'fetch',customers:{},entries:[],rates:clone(DEFAULT_RATES),applyOffer:true,filledFor:'',cfg:null,loaded:false,pending:0,saving:false,confirmDel:null,syncErr:''};
@@ -464,11 +480,14 @@ function renderEntries(){
       <div class="det">${esc(e.details)}<br>${esc(e.address)}</div>
       <div class="money num"><span>Total <b>${inr(e.total)}</b></span><span>Service ${inr(e.service)}</span><span>${esc(e.payment)}</span><span>${esc(e.rider)}</span></div>
       <div class="acts"><button class="btn small ${done?'ghost':''}" data-act="status" type="button">${done?'Done. Mark pending':'Mark done'}</button>
+      <button class="btn small ghost" data-act="bill" type="button">Bill</button>
       <button class="btn small danger" data-act="del" type="button">${cf?'Tap again to delete':'Delete'}</button></div>
     </article>`}).join(''):`<div class="empty">${state.loaded?('No entries '+($('fPeriod').value==='today'?'today':'for this filter')+' yet.<br>Add one from the New entry tab.'):'Loading from the Google Sheet…'}</div>`;
 }
 async function entryAct(id,act){
-  const e=state.entries.find(x=>x.id===id);if(!e||!state.cfg)return;
+  const e=state.entries.find(x=>x.id===id);if(!e)return;
+  if(act==='bill'){openBill(e);return}
+  if(!state.cfg)return;
   try{
     if(act==='status'){
       const next=e.status==='Done'?'Pending':'Done';
@@ -482,6 +501,55 @@ async function entryAct(id,act){
       todayLine();renderEntries();toast('Entry deleted from the sheet.');
     }
   }catch(err){state.confirmDel=null;toast('Not changed. '+errMsg(err));renderEntries()}
+}
+
+
+/* ---------- bill ---------- */
+function billLines(e){
+  const L=[];
+  if(e.type==='fetch'){
+    const med=e.medicine?Math.max(0,(e.service||0)-(e.baseCharge||0)+(e.discount||0)):0;
+    L.push(['Items (actual bill)',e.itemCost||0]);L.push(['Service charge',e.baseCharge||0]);
+    if(med)L.push(['Medicine handling',med]);
+  }else{
+    const wait=Math.max(0,(e.service||0)-(e.baseCharge||0)+(e.discount||0));
+    L.push([`Bike taxi fare${e.distance?' (up to '+e.distance+' km)':''}${e.round?', return trip':''}${e.night?', night':''}`,e.baseCharge||0]);
+    if(wait)L.push(['Waiting charge',wait]);
+  }
+  if(e.discount)L.push(['First-order offer',-e.discount]);
+  return L;
+}
+function billNo(e){const d=new Date(e.when);return 'VKT-'+String(d.getFullYear()).slice(2)+pad(d.getMonth()+1)+pad(d.getDate())+'-'+String(e.id||'').slice(-4).toUpperCase()}
+function billText(e){
+  const r=state.rates,d=new Date(e.when);
+  const t=[`*${r.billName||'VKT Riders'}*`,`Bill ${billNo(e)}`,d.toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}),'',`Customer: ${e.name}`,`${e.type==='fetch'?'Order':'Ride'}: ${e.details}`,''];
+  billLines(e).forEach(l=>t.push(`${l[0]}: ${l[1]<0?'-':''}${inr(Math.abs(l[1]))}`));
+  t.push('',`*Total: ${inr(e.total)}*`,`Payment: ${e.payment}`);
+  if(r.billUpi&&e.payment!=='Cash')t.push(`UPI: ${r.billUpi}`);
+  t.push('',r.billNote||'Thank you!');if(r.billPhone)t.push(r.billPhone);
+  return t.join('\n');
+}
+let billFor=null;
+function openBill(e){
+  billFor=e;const r=state.rates,d=new Date(e.when);
+  const rows=billLines(e).map(l=>`<div class="brow ${l[1]<0?'off':''}"><span>${esc(l[0])}</span><span class="num">${l[1]<0?'− ':''}${inr(Math.abs(l[1]))}</span></div>`).join('');
+  $('billSheet').innerHTML=`<div class="bhead"><div class="bname">${esc(r.billName||'VKT Riders')}</div>${r.billPhone?`<div class="bsub">${esc(r.billPhone)}</div>`:''}</div>
+   <div class="bmeta"><span>Bill no. <b>${esc(billNo(e))}</b></span><span>${esc(d.toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}))}</span></div>
+   <div class="bcust"><b>${esc(e.name)}</b><br>${esc(fmtPhone(e.phone||''))}<br>${esc(e.address)}</div>
+   <div class="bdet"><span class="chip">${e.type==='fetch'?'Town Fetch':'Bike Taxi'}</span> ${esc(e.details)}</div>
+   <div class="brows">${rows}<div class="brow btotal"><span>Total</span><span class="num">${inr(e.total)}</span></div></div>
+   <div class="bpay">Payment: <b>${esc(e.payment)}</b>${r.billUpi&&e.payment!=='Cash'?` · UPI: <b>${esc(r.billUpi)}</b>`:''}</div>
+   <div class="bnote">${esc(r.billNote||'Thank you!')}</div>`;
+  $('billModal').hidden=false;document.body.classList.add('bill-open');
+}
+function closeBill(){$('billModal').hidden=true;document.body.classList.remove('bill-open');billFor=null}
+function billWhatsApp(){
+  if(!billFor)return;const ph=digits(billFor.phone);
+  window.open('https://wa.me/91'+ph+'?text='+encodeURIComponent(billText(billFor)),'_blank');
+}
+async function billCopy(){
+  if(!billFor)return;
+  try{await navigator.clipboard.writeText(billText(billFor));toast('Bill text copied.')}catch(e){toast('Could not copy. Use WhatsApp or Print instead.')}
 }
 
 /* ---------- customers view ---------- */
@@ -510,7 +578,8 @@ function renderRatesForm(){
       `${n('r_fu'+i,t.upto,'Order up to (₹)')}${n('r_fc'+i,t.charge,'Charge (₹)')}`).join('')}</div>
    <h3>Bike Taxi fare</h3><div class="ratesgrid">${r.ride.map((b,i)=>`${n('r_rk'+i,b.km,'Up to (km)')}${n('r_rd'+i,b.day,'Day fare (₹)')}${n('r_rn'+i,b.night,'Night fare (₹)')}`).join('')}</div>
    <h3>Waiting, per 15 min</h3><div class="ratesgrid">${n('r_wd',r.wait.day,'Day (₹)')}${n('r_wn',r.wait.night,'Night (₹)')}${n('r_ns',r.nightStart,'Night starts (hour, 0–23)')}${n('r_ne',r.nightEnd,'Night ends (hour, 0–23)')}</div>
-   <h3>Riders</h3><div class="field" style="margin-bottom:14px"><label for="r_riders">Names, separated by commas</label><input id="r_riders" value="${esc(r.riders.join(', '))}"></div>`;
+   <h3>Riders</h3><div class="field" style="margin-bottom:14px"><label for="r_riders">Names, separated by commas</label><input id="r_riders" value="${esc(r.riders.join(', '))}"></div>
+   <h3>Bill details</h3><div class="ratesgrid"><div class="field"><label for="r_bn">Business name</label><input id="r_bn" value="${esc(r.billName)}"></div><div class="field"><label for="r_bp">Your WhatsApp / phone</label><input id="r_bp" inputmode="tel" value="${esc(r.billPhone)}"></div><div class="field"><label for="r_bu">UPI ID (shown on bill)</label><input id="r_bu" value="${esc(r.billUpi)}"></div><div class="field"><label for="r_bt">Thank-you line</label><input id="r_bt" value="${esc(r.billNote)}"></div></div>`;
 }
 function readRates(){
   const g=id=>Math.max(0,+$(id).value||0),r=clone(state.rates);
@@ -519,6 +588,7 @@ function readRates(){
   r.ride=r.ride.map((b,i)=>({km:g('r_rk'+i),day:g('r_rd'+i),night:g('r_rn'+i)}));
   r.wait={day:g('r_wd'),night:g('r_wn')};r.nightStart=Math.min(23,g('r_ns'));r.nightEnd=Math.min(23,g('r_ne'));
   const names=$('r_riders').value.split(',').map(s=>s.trim()).filter(Boolean);r.riders=names.length?names:['Rider 1'];
+  r.billName=$('r_bn').value.trim()||'VKT Riders';r.billPhone=$('r_bp').value.trim();r.billUpi=$('r_bu').value.trim();r.billNote=$('r_bt').value.trim();
   return r;
 }
 async function putRates(r){
@@ -595,7 +665,9 @@ function bind(){
     show('new');$('phone').value=c.phone;$('name').value=c.name||'';$('address').value=c.address||'';state.filledFor=c.phone;state.applyOffer=true;refresh();$('details').focus()});
   $('saveRates').addEventListener('click',()=>putRates(readRates()));
   $('resetRates').addEventListener('click',()=>putRates(clone(DEFAULT_RATES)));
-  $('exEntries').addEventListener('click',exportEntries);$('exCustomers').addEventListener('click',exportCustomers);
+  $('exEntries').addEventListener('click',exportEntries);
+  $('billClose').addEventListener('click',closeBill);$('billModal').addEventListener('click',e=>{if(e.target.id==='billModal')closeBill()});
+  $('billWa').addEventListener('click',billWhatsApp);$('billCopy').addEventListener('click',billCopy);$('billPrint').addEventListener('click',()=>window.print());$('exCustomers').addEventListener('click',exportCustomers);
   $('cfgBtn').addEventListener('click',connect);$('cfgOff').addEventListener('click',disconnect);
   $('syncNow').addEventListener('click',()=>sync(false));
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true)});
