@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VKT Riders Tracker</title>
+<script>
+// Optional: when you host this page (for example on GitHub Pages) you can put the link and PIN here so nobody has to type them.
+// Leave both empty to use the Setup tab instead.
+window.VKT_CONFIG={url:"",pin:""};
+</script>
+<style>
+/* Layout: one narrow column, phone first. Header band, tab row, then one view at a time. Green and white, same as the VKT Riders flyer. */
+:root{
+  --bg:#F3FBF5; --surface:#FFFFFF; --ink:#0B3D2A; --muted:#4C6B5C; --line:#CFE6D6; --soft:#E7F6EC;
+  --brand:#15803D; --brand-ink:#FFFFFF; --brand-text:#0F6B31; --mint:#9BE7B2; --head:#0B3D2A; --head-ink:#FFFFFF;
+  --offer-bg:#FEF3C7; --offer-ink:#7C4A03; --danger:#B91C1C; --danger-bg:#FEE2E2; --field:#FFFFFF;
+  --font:'Poppins','Noto Sans Tamil',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#07140E; --surface:#0E2419; --ink:#E5F6EB; --muted:#9DBBAA; --line:#1E4030; --soft:#143325;
+  --brand:#15803D; --brand-ink:#FFFFFF; --brand-text:#7DE2A6; --mint:#9BE7B2; --head:#0A1F15; --head-ink:#FFFFFF;
+  --offer-bg:#3B2A07; --offer-ink:#FCD34D; --danger:#FCA5A5; --danger-bg:#3F1515; --field:#0A1B12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#07140E; --surface:#0E2419; --ink:#E5F6EB; --muted:#9DBBAA; --line:#1E4030; --soft:#143325;
+  --brand:#15803D; --brand-ink:#FFFFFF; --brand-text:#7DE2A6; --mint:#9BE7B2; --head:#0A1F15; --head-ink:#FFFFFF;
+  --offer-bg:#3B2A07; --offer-ink:#FCD34D; --danger:#FCA5A5; --danger-bg:#3F1515; --field:#0A1B12; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--head);color:var(--head-ink);padding-block:14px 0}
+.brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.brand h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.brand h1 span{color:var(--mint)}
+.today{font-size:13px;color:#D5F0DD}
+.tabs{display:flex;gap:4px;overflow-x:auto;margin-top:12px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;min-height:46px;padding:0 16px;border:0;background:transparent;color:#BFE3CB;font-weight:600;font-size:14px;cursor:pointer;border-radius:12px 12px 0 0}
+.tab[aria-selected="true"]{background:var(--bg);color:var(--brand-text)}
+.tab:focus-visible,.btn:focus-visible,.seg button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+main{padding-block:18px 48px}
+h2{font-size:18px;margin:0 0 12px;font-weight:700;text-wrap:balance}
+h3{font-size:14px;margin:0 0 8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{min-height:46px;border:1.5px solid var(--line);background:var(--field);border-radius:10px;padding:10px 12px;width:100%}
+.field textarea{min-height:84px;resize:vertical}
+.check{display:flex;align-items:center;gap:10px;min-height:46px;font-weight:500}
+.check input{width:22px;height:22px;accent-color:var(--brand);flex:none}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--soft);padding:5px;border-radius:14px}
+.seg button{min-height:48px;border:0;border-radius:10px;background:transparent;font-weight:700;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.btn{min-height:48px;padding:0 20px;border-radius:12px;border:1.5px solid var(--brand);background:var(--brand);color:var(--brand-ink);font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--brand-text)}
+.btn.small{min-height:40px;padding:0 14px;font-size:13px}
+.btn.danger{border-color:var(--danger);color:var(--danger);background:transparent}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.box{border-radius:14px;padding:12px 14px;border:1.5px solid var(--line);background:var(--soft);margin-top:12px}
+.box.new{border-color:var(--brand)}
+.box strong{display:block}
+.chip{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:99px;font-size:12px;font-weight:700;background:var(--soft);color:var(--brand-text);white-space:nowrap}
+.chip.offer{background:var(--offer-bg);color:var(--offer-ink)}
+.chip.warn{background:var(--danger-bg);color:var(--danger)}
+.price{display:grid;gap:6px}
+.price .row{display:flex;justify-content:space-between;gap:12px}
+.price .row span:last-child{white-space:nowrap}
+.price .row.total{border-top:1.5px dashed var(--line);padding-top:10px;margin-top:4px;font-size:20px;font-weight:800}
+.price .row.off{color:var(--brand-text);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted);font-size:13px}
+.list{display:grid;gap:10px}
+.entry{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px}
+.entry .top{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.entry .top time{margin-left:auto;font-size:12px;color:var(--muted)}
+.entry .who{font-weight:700;overflow-wrap:anywhere}
+.entry .det{overflow-wrap:anywhere;color:var(--muted);font-size:14px}
+.entry .money{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px}
+.entry .acts{display:flex;gap:8px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat b{display:block;font-size:20px;font-weight:800}
+.stat span{font-size:12px;color:var(--muted)}
+.empty{text-align:center;padding:30px 12px;color:var(--muted);border:1.5px dashed var(--line);border-radius:14px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.bar .field{flex:1 1 150px}
+.ratesgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--head);color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;max-width:calc(100% - 32px);z-index:20;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.banner{background:var(--danger-bg);color:var(--danger);padding:12px 14px;border-radius:12px;margin-bottom:14px;font-weight:600}
+@media (prefers-reduced-motion: no-preference){.tab,.btn{transition:background .15s}}
+
+.tab{padding:0 7px!important;font-size:12.5px!important;flex:1 1 auto!important;justify-content:center}
+.syncline{font-size:12px;margin-top:2px}
+.sync-ok{color:var(--mint)}.sync-err{color:#FCA5A5}
+.linkbtn{background:none;border:0;color:var(--head-ink);text-decoration:underline;cursor:pointer;font-size:12px;padding:0 4px}
+.steps{margin:0;padding-left:20px}.steps li{margin-bottom:8px}
+.banner{background:var(--offer-bg);color:var(--offer-ink);border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}
+</style>
+</head><body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>VKT <span>Riders</span> Tracker</h1>
+      <div class="today num" id="todayLine">&nbsp;</div>
+      <div class="syncline"><span id="sync" class="sync-err">Not connected</span> <button type="button" id="syncNow" class="linkbtn">Refresh</button></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="t-new" data-view="new" aria-selected="true">New entry</button>
+      <button class="tab" role="tab" id="t-entries" data-view="entries" aria-selected="false">Entries</button>
+      <button class="tab" role="tab" id="t-customers" data-view="customers" aria-selected="false">Customers</button>
+      <button class="tab" role="tab" id="t-rates" data-view="rates" aria-selected="false">Rates</button>
+      <button class="tab" role="tab" id="t-setup" data-view="setup" aria-selected="false">Setup</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="banner" class="banner" hidden></div>
+
+  <!-- NEW ENTRY -->
+  <section id="v-new" aria-labelledby="t-new">
+    <div class="card">
+      <h3>What is this for?</h3>
+      <div class="seg" role="group" aria-label="Entry type">
+        <button type="button" id="ty-fetch" aria-pressed="true">Town Fetch</button>
+        <button type="button" id="ty-ride" aria-pressed="false">Bike Taxi</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Customer</h3>
+      <div class="grid">
+        <div class="field"><label for="phone">WhatsApp / phone number</label><input id="phone" inputmode="numeric" autocomplete="off" placeholder="10-digit number" maxlength="16"></div>
+        <div class="field"><label for="name">Name</label><input id="name" autocomplete="off" placeholder="Customer name"></div>
+      </div>
+      <div class="field" style="margin-top:12px"><label for="address">Address</label><textarea id="address" placeholder="Street, village, landmark"></textarea></div>
+      <div id="custStatus" class="box" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h3 id="detailsHead">Order</h3>
+      <div class="grid" style="margin-bottom:12px">
+        <div class="field"><label for="when">Date and time</label><input id="when" type="datetime-local"></div>
+        <div class="field"><label for="rider">Rider</label><select id="rider"></select></div>
+      </div>
+      <div id="fetchFields">
+        <div class="field"><label for="details">What to buy</label><textarea id="details" placeholder="e.g. 1 kg onion, 500 g tomato, paracetamol strip"></textarea></div>
+        <div class="grid" style="margin-top:12px">
+          <div class="field"><label for="cost">Items cost, as billed in town (₹)</label><input id="cost" type="number" inputmode="decimal" min="0" placeholder="0"></div>
+          <div class="check" style="align-self:end"><input id="medicine" type="checkbox"><label for="medicine">Includes medicines</label></div>
+        </div>
+      </div>
+      <div id="rideFields" hidden>
+        <div class="grid">
+          <div class="field"><label for="pickup">Pickup point</label><input id="pickup" autocomplete="off" placeholder="Where to pick up"></div>
+          <div class="field"><label for="drop">Drop point</label><input id="drop" autocomplete="off" placeholder="Where to drop"></div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div class="field"><label for="band">Distance</label><select id="band"></select></div>
+          <div class="field"><label for="wait">Waiting (blocks of 15 min)</label><input id="wait" type="number" min="0" step="1" inputmode="numeric" value="0"></div>
+        </div>
+        <div class="check" style="margin-top:8px"><input id="round" type="checkbox"><label for="round">Return trip (both ways charged)</label></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Charge</h3>
+      <div id="price" class="price" aria-live="polite"></div>
+      <div class="grid" style="margin-top:14px">
+        <div class="field"><label for="payment">Payment</label>
+          <select id="payment"><option>UPI</option><option>Cash</option><option>Unpaid</option></select></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="saveBtn" type="button">Save entry</button>
+        <button class="btn ghost" id="clearBtn" type="button">Clear form</button>
+      </div>
+      <p class="muted" id="saveHint" style="margin:10px 0 0"></p>
+    </div>
+  </section>
+
+  <!-- ENTRIES -->
+  <section id="v-entries" hidden aria-labelledby="t-entries">
+    <div class="stats" id="stats"></div>
+    <div class="bar">
+      <div class="field"><label for="fPeriod">Period</label>
+        <select id="fPeriod"><option value="today">Today</option><option value="week">Last 7 days</option><option value="all">All time</option></select></div>
+      <div class="field"><label for="fType">Type</label>
+        <select id="fType"><option value="all">All</option><option value="fetch">Town Fetch</option><option value="ride">Bike Taxi</option></select></div>
+      <div class="field"><label for="fSearch">Search</label><input id="fSearch" placeholder="Name, phone, place"></div>
+    </div>
+    <div id="entryList" class="list"></div>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap" id="exportRow">
+      <button class="btn ghost small" id="exEntries" type="button">Download entries (CSV)</button>
+    </div>
+  </section>
+
+  <!-- CUSTOMERS -->
+  <section id="v-customers" hidden aria-labelledby="t-customers">
+    <div class="bar">
+      <div class="field"><label for="cSearch">Search customers</label><input id="cSearch" placeholder="Name, phone, address"></div>
+    </div>
+    <div id="custList" class="list"></div>
+    <div style="margin-top:14px" id="exportRow2">
+      <button class="btn ghost small" id="exCustomers" type="button">Download customers (CSV)</button>
+    </div>
+  </section>
+
+  <!-- RATES -->
+  <section id="v-rates" hidden aria-labelledby="t-rates">
+    <div class="card"><h2>Rate card</h2>
+      <p class="muted" style="margin-top:0">Changes apply to new entries only. Saved entries keep the charge they were saved with.</p>
+      <div id="ratesForm"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn" id="saveRates" type="button">Save rates</button>
+        <button class="btn ghost" id="resetRates" type="button">Reset to flyer rates</button>
+      </div>
+    </div>
+    <div class="card"><h3>How the first-order offer works</h3>
+      <p style="margin:0 0 8px">A customer is new when their phone number has no earlier entry. Their first order or ride gets the discount below.</p>
+      <p style="margin:0 0 8px">Town Fetch: the discount is taken off the service charge. Items are billed at the actual price, and the medicine extra is not discounted.</p>
+      <p style="margin:0">Bike Taxi: the discount is taken off one way of the fare. Waiting time and the return leg are charged in full.</p>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section id="v-setup" hidden aria-labelledby="t-setup">
+    <div class="card">
+      <h2>Google Sheet connection</h2>
+      <p id="cfgState" class="muted" style="margin-top:0"></p>
+      <div id="cfgForm">
+        <div class="field"><label for="cfgUrl">Web app link (ends with /exec)</label><input id="cfgUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="field" style="margin-top:12px"><label for="cfgPin">PIN (the one you typed in the script)</label><input id="cfgPin" type="password" autocomplete="off" placeholder="Your PIN"></div>
+        <div style="margin-top:14px"><button class="btn" id="cfgBtn" type="button">Save and test connection</button></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn ghost small" id="cfgOff" type="button" hidden>Disconnect this device</button></div>
+    </div>
+    <div class="card">
+      <h3>One-time setup (about 5 minutes)</h3>
+      <ol class="steps">
+        <li>Open your Google Sheet. Click <b>Extensions</b> then <b>Apps Script</b>.</li>
+        <li>Delete everything in the editor and paste the whole <b>Code.gs</b> file.</li>
+        <li>On line 13 replace <b>CHANGE-THIS-PIN</b> with your own PIN. Click the save icon.</li>
+        <li>Click <b>Deploy</b>, then <b>New deployment</b>. Click the gear and choose <b>Web app</b>.</li>
+        <li>Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>. Click <b>Deploy</b>.</li>
+        <li>Click <b>Authorize access</b>, choose your Google account. If Google says the app is not verified, click <b>Advanced</b> then <b>Go to project</b> and <b>Allow</b>.</li>
+        <li>Copy the <b>Web app URL</b>. Paste it above with your PIN and click <b>Save and test connection</b>.</li>
+      </ol>
+      <p class="muted" style="margin:8px 0 0">Your partner does the last step only, on their own phone or computer, using the same link and PIN. Entries, customers and rates are stored in three tabs of your sheet: Entries, Customers and Rates. Do not rename or reorder the first-row headings. If you edit the script later, use Deploy then Manage deployments then Edit then New version.</p>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+
+
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr=n=>'₹'+Math.round(n||0).toLocaleString('en-IN');
+const digits=s=>String(s||'').replace(/\D/g,'').slice(-10);
+const fmtPhone=d=>d.length===10?d.slice(0,5)+' '+d.slice(5):d;
+const pad=n=>String(n).padStart(2,'0');
+const localInput=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fmtWhen=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleString('en-IN',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})};
+const sameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+const genId=()=>'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+const DEFAULT_RATES={
+  discountPct:50, medicine:10,
+  fetch:[{upto:200,charge:30},{upto:500,charge:40},{upto:1000,charge:50},{upto:null,charge:60}],
+  ride:[{km:3,day:30,night:50},{km:6,day:50,night:80},{km:10,day:80,night:120}],
+  wait:{day:15,night:20}, nightStart:21, nightEnd:6, riders:['Rider 1','Rider 2']
+};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const state={view:'new',type:'fetch',customers:{},entries:[],rates:clone(DEFAULT_RATES),applyOffer:true,filledFor:'',cfg:null,loaded:false,pending:0,saving:false,confirmDel:null,syncErr:''};
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true},3600)}
+
+/* ---------- connection to the Google Sheet script ---------- */
+function getCfg(){
+  const h=window.VKT_CONFIG||{};
+  if(h.url&&h.pin)return{url:h.url,pin:h.pin,fixed:true};
+  try{const c=JSON.parse(localStorage.getItem('vkt_cfg')||'null');if(c&&c.url&&c.pin)return c}catch(e){}
+  return null;
+}
+function errMsg(e){
+  const m=e&&e.message?e.message:String(e);
+  if(m==='wrong_pin')return 'Wrong PIN. Check the PIN in the Setup tab.';
+  if(m==='pin_not_set')return 'Set your own PIN in the Google Sheet script first (see Setup).';
+  if(e&&e.name==='AbortError')return 'The Google Sheet did not answer in time. Try again.';
+  if(e&&e.name==='TypeError')return 'Cannot reach the Google Sheet script. Check the internet and the web app link.';
+  return 'Google Sheet said: '+m;
+}
+async function api(action,payload,cfg){
+  const c=cfg||state.cfg;if(!c)throw new Error('not_connected');
+  const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),30000);
+  try{
+    const res=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({pin:c.pin,action},payload||{})),signal:ctl.signal,redirect:'follow'});
+    const j=await res.json();
+    if(!j.ok)throw new Error(j.error||'failed');
+    return j;
+  }finally{clearTimeout(timer)}
+}
+function setSync(ok){
+  const el=$('sync');
+  if(!state.cfg){el.textContent='Not connected';el.className='sync-err';return}
+  if(ok){el.textContent='Synced '+new Date().toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});el.className='sync-ok'}
+  else{el.textContent='Sync failed';el.className='sync-err'}
+}
+function applyLoad(j){
+  const cm={};(j.customers||[]).forEach(c=>{cm[c.id]=c});state.customers=cm;
+  state.entries=(j.entries||[]).slice().sort((a,b)=>String(b.createdAt||b.when).localeCompare(String(a.createdAt||a.when)));
+  const r=clone(DEFAULT_RATES);if(j.rates){for(const k of Object.keys(r))if(j.rates[k]!=null)r[k]=j.rates[k]}
+  state.rates=r;state.loaded=true;
+}
+async function sync(quiet){
+  if(!state.cfg||state.pending)return;
+  try{const j=await api('load');if(state.pending)return;applyLoad(j);setSync(true);fillSelects();todayLine();refresh();
+    if(state.view==='entries')renderEntries();if(state.view==='customers')renderCustomers();if(state.view==='rates'&&!document.activeElement.closest('#ratesForm'))renderRatesForm();
+    $('banner').hidden=true;
+  }catch(e){setSync(false);if(!quiet)toast(errMsg(e));if(!state.loaded){$('banner').hidden=false;$('banner').textContent=errMsg(e)}}
+}
+async function write(fn){state.pending++;try{return await fn()}finally{state.pending--}}
+
+/* ---------- pricing ---------- */
+function isNight(d,r){const h=d.getHours();return r.nightStart>r.nightEnd?(h>=r.nightStart||h<r.nightEnd):(h>=r.nightStart&&h<r.nightEnd)}
+function calc(v,first,r){
+  const out={lines:[],base:0,discount:0,service:0,items:0,total:0,night:false};
+  const when=new Date(v.when);const night=isNaN(when)?false:isNight(when,r);out.night=night;
+  const pct=(r.discountPct||0)/100;
+  if(v.type==='fetch'){
+    const cost=Math.max(0,+v.cost||0);
+    const tier=r.fetch.find(t=>t.upto==null||cost<=t.upto)||r.fetch[r.fetch.length-1];
+    out.base=tier.charge;out.items=cost;
+    out.discount=first?Math.round(out.base*pct):0;
+    const med=v.medicine?r.medicine:0;
+    out.service=out.base-out.discount+med;out.total=out.service+cost;
+    out.lines.push(['Service charge'+(tier.upto==null?' (above '+inr(r.fetch[r.fetch.length-2].upto)+')':' (up to '+inr(tier.upto)+')'),out.base]);
+    if(med)out.lines.push(['Medicine handling',med]);
+    if(out.discount)out.lines.push(['First order offer ('+r.discountPct+'% off service charge)',-out.discount,'off']);
+    out.lines.push(['Items cost (actual bill)',cost]);
+  }else{
+    const band=r.ride[Math.min(Math.max(+v.band||0,0),r.ride.length-1)];
+    const one=night?band.night:band.day,legs=v.round?2:1;
+    const waitN=Math.max(0,Math.floor(+v.wait||0)),waitAmt=waitN*(night?r.wait.night:r.wait.day);
+    out.base=one*legs;out.discount=first?Math.round(one*pct):0;
+    out.service=out.base-out.discount+waitAmt;out.total=out.service;
+    out.lines.push([`Fare up to ${band.km} km, ${night?'night':'day'} rate`+(legs===2?' × 2 (return)':''),out.base]);
+    if(waitAmt)out.lines.push([`Waiting ${waitN} × 15 min`,waitAmt]);
+    if(out.discount)out.lines.push(['First ride offer ('+r.discountPct+'% off one way)',-out.discount,'off']);
+  }
+  return out;
+}
+
+/* ---------- form ---------- */
+function vals(){return{type:state.type,phone:digits($('phone').value),name:$('name').value.trim(),address:$('address').value.trim(),
+  details:$('details').value.trim(),cost:$('cost').value,medicine:$('medicine').checked,pickup:$('pickup').value.trim(),drop:$('drop').value.trim(),
+  band:$('band').value,round:$('round').checked,wait:$('wait').value,when:$('when').value,payment:$('payment').value,rider:$('rider').value}}
+function custFor(v){return v.phone.length===10?state.customers['p'+v.phone]:null}
+function eligible(v){return v.phone.length===10&&(!custFor(v)||custFor(v).offerUsed!==true)}
+function entriesOf(phone){return state.entries.filter(e=>e.phone===phone)}
+
+function refresh(){
+  const v=vals(),c=custFor(v),r=state.rates;
+  if(v.phone.length===10&&c&&state.filledFor!==v.phone){state.filledFor=v.phone;if(!$('name').value.trim())$('name').value=c.name||'';if(!$('address').value.trim())$('address').value=c.address||'';}
+  if(v.phone.length<10)state.filledFor='';
+  const el=eligible(v),box=$('custStatus');
+  if(v.phone.length<10){box.className='box';box.innerHTML='<span class="muted">Enter the 10-digit number to check whether this customer is new.</span>';}
+  else if(!state.loaded){box.className='box';box.innerHTML='<span class="muted">Checking the customer list…</span>';}
+  else if(el){
+    box.className='box new';
+    box.innerHTML=`<strong>${c?'Registered customer, offer not used yet':'New customer'}</strong>
+      <span class="muted">First ${state.type==='fetch'?'order':'ride'} gets ${r.discountPct}% off.</span>
+      <div class="check" style="margin-top:4px"><input id="applyOffer" type="checkbox" ${state.applyOffer?'checked':''}><label for="applyOffer">Apply the first-order offer</label></div>`;
+    $('applyOffer').addEventListener('change',e=>{state.applyOffer=e.target.checked;renderPrice()});
+  }else{
+    const list=entriesOf(v.phone),last=list[0];
+    box.className='box';
+    box.innerHTML=`<strong>Returning customer</strong><span class="muted">${list.length} earlier ${list.length===1?'entry':'entries'}${last?', last on '+esc(fmtWhen(last.when)):''}. Offer already used.</span>`;
+  }
+  $('detailsHead').textContent=state.type==='fetch'?'Order':'Ride';
+  renderPrice();
+}
+function renderPrice(){
+  const v=vals(),r=state.rates,el=state.loaded&&eligible(v)&&state.applyOffer;
+  const c=calc(v,el,r);
+  let h=c.lines.map(l=>`<div class="row ${l[2]||''}"><span>${esc(l[0])}</span><span class="num">${l[1]<0?'− ':''}${inr(Math.abs(l[1]))}</span></div>`).join('');
+  h+=`<div class="row total"><span>Collect from customer</span><span class="num">${inr(c.total)}</span></div>`;
+  if(state.type==='fetch')h+=`<div class="row muted"><span>Your service income</span><span class="num">${inr(c.service)}</span></div>`;
+  if(state.type==='ride'&&c.night)h+=`<div class="muted">Night rate applies for this time.</div>`;
+  $('price').innerHTML=h;
+  const err=validate(v),ready=state.cfg&&state.loaded;
+  $('saveBtn').disabled=!!err||state.saving||!ready;
+  $('saveBtn').textContent=state.saving?'Saving…':'Save entry';
+  $('saveHint').textContent=!state.cfg?'Connect to your Google Sheet in the Setup tab first.':(!state.loaded?'Connecting to the Google Sheet…':(err||''));
+}
+function validate(v){
+  if(v.phone.length!==10)return 'Enter a 10-digit phone number.';
+  if(!v.name)return 'Enter the customer name.';
+  if(!v.address)return 'Enter the customer address.';
+  if(!v.when||isNaN(new Date(v.when)))return 'Pick the date and time.';
+  if(v.type==='fetch'&&!v.details)return 'Write what to buy.';
+  if(v.type==='ride'&&(!v.pickup||!v.drop))return 'Enter the pickup and drop points.';
+  return '';
+}
+function setType(t){
+  state.type=t;
+  $('ty-fetch').setAttribute('aria-pressed',t==='fetch');$('ty-ride').setAttribute('aria-pressed',t==='ride');
+  $('fetchFields').hidden=t!=='fetch';$('rideFields').hidden=t!=='ride';refresh();
+}
+function resetForm(){
+  for(const id of['phone','name','address','details','cost','pickup','drop'])$(id).value='';
+  $('medicine').checked=false;$('round').checked=false;$('wait').value='0';$('when').value=localInput(new Date());
+  state.applyOffer=true;state.filledFor='';refresh();
+}
+function fillSelects(){
+  const r=state.rates,keep=$('rider').value;
+  $('rider').innerHTML=r.riders.map(n=>`<option>${esc(n)}</option>`).join('');
+  if(r.riders.includes(keep))$('rider').value=keep;
+  const kb=$('band').value;
+  $('band').innerHTML=r.ride.map((b,i)=>`<option value="${i}">Up to ${b.km} km</option>`).join('');
+  if(kb)$('band').value=kb;
+}
+
+async function save(){
+  const v=vals(),err=validate(v);if(err||!state.cfg||!state.loaded||state.saving)return;
+  state.saving=true;renderPrice();
+  try{
+    const id='p'+v.phone,c=state.customers[id],el=eligible(v)&&state.applyOffer,cd=calc(v,el,state.rates),now=new Date().toISOString();
+    const entry={id:genId(),type:v.type,customerId:id,name:v.name,phone:v.phone,address:v.address,
+      details:v.type==='fetch'?v.details:`${v.pickup} → ${v.drop}`,when:new Date(v.when).toISOString(),createdAt:now,
+      payment:v.payment,rider:v.rider,status:'Pending',firstOffer:el,baseCharge:cd.base,discount:cd.discount,service:cd.service,
+      itemCost:cd.items,total:cd.total,night:cd.night,medicine:!!v.medicine,
+      distance:v.type==='ride'?state.rates.ride[+v.band].km:null,round:!!v.round,waitBlocks:v.type==='ride'?Math.max(0,Math.floor(+v.wait||0)):0};
+    const customer={id,name:v.name,phone:v.phone,address:v.address,createdAt:(c&&c.createdAt)||now,updatedAt:now,offerUsed:(c&&c.offerUsed===true)||el};
+    await write(()=>api('addEntry',{entry,customer}));
+    state.entries.unshift(entry);state.customers[id]=customer;todayLine();setSync(true);
+    toast(el?`Saved in the sheet. First-order offer applied (${inr(cd.discount)} off).`:'Saved in the sheet.');
+    resetForm();
+  }catch(e){toast('Not saved. '+errMsg(e))}
+  finally{state.saving=false;renderPrice()}
+}
+
+/* ---------- entries view ---------- */
+function filtered(){
+  const p=$('fPeriod').value,t=$('fType').value,q=$('fSearch').value.trim().toLowerCase(),now=new Date();
+  return state.entries.filter(e=>{
+    const d=new Date(e.when);
+    if(p==='today'&&!sameDay(d,now))return false;
+    if(p==='week'&&now-d>7*864e5)return false;
+    if(t!=='all'&&e.type!==t)return false;
+    if(q&&!(`${e.name} ${e.phone} ${e.address} ${e.details}`.toLowerCase().includes(q)))return false;
+    return true;});
+}
+function renderEntries(){
+  const list=filtered();
+  const income=list.reduce((s,e)=>s+(e.service||0),0),offers=list.filter(e=>e.firstOffer).length;
+  $('stats').innerHTML=`<div class="stat"><b class="num">${list.length}</b><span>Entries</span></div><div class="stat"><b class="num">${inr(income)}</b><span>Service income</span></div><div class="stat"><b class="num">${offers}</b><span>Offers given</span></div>`;
+  $('entryList').innerHTML=list.length?list.map(e=>{
+    const done=e.status==='Done',cf=state.confirmDel===e.id;
+    return `<article class="entry" data-id="${esc(e.id)}">
+      <div class="top"><span class="chip">${e.type==='fetch'?'Town Fetch':'Bike Taxi'}</span>${e.firstOffer?'<span class="chip offer">First-order offer</span>':''}${e.night?'<span class="chip">Night</span>':''}<time>${esc(fmtWhen(e.when))}</time></div>
+      <div class="who">${esc(e.name)} · <span class="num">${esc(fmtPhone(e.phone||''))}</span></div>
+      <div class="det">${esc(e.details)}<br>${esc(e.address)}</div>
+      <div class="money num"><span>Total <b>${inr(e.total)}</b></span><span>Service ${inr(e.service)}</span><span>${esc(e.payment)}</span><span>${esc(e.rider)}</span></div>
+      <div class="acts"><button class="btn small ${done?'ghost':''}" data-act="status" type="button">${done?'Done. Mark pending':'Mark done'}</button>
+      <button class="btn small danger" data-act="del" type="button">${cf?'Tap again to delete':'Delete'}</button></div>
+    </article>`}).join(''):`<div class="empty">${state.loaded?('No entries '+($('fPeriod').value==='today'?'today':'for this filter')+' yet.<br>Add one from the New entry tab.'):'Loading from the Google Sheet…'}</div>`;
+}
+async function entryAct(id,act){
+  const e=state.entries.find(x=>x.id===id);if(!e||!state.cfg)return;
+  try{
+    if(act==='status'){
+      const next=e.status==='Done'?'Pending':'Done';
+      await write(()=>api('setStatus',{id,status:next}));e.status=next;renderEntries();
+    }else if(act==='del'){
+      if(state.confirmDel!==id){state.confirmDel=id;renderEntries();setTimeout(()=>{if(state.confirmDel===id){state.confirmDel=null;renderEntries()}},3500);return;}
+      state.confirmDel=null;
+      await write(()=>api('deleteEntry',{id}));
+      state.entries=state.entries.filter(x=>x.id!==id);
+      if(e.firstOffer&&!state.entries.some(x=>x.phone===e.phone&&x.firstOffer)&&state.customers[e.customerId])state.customers[e.customerId].offerUsed=false;
+      todayLine();renderEntries();toast('Entry deleted from the sheet.');
+    }
+  }catch(err){state.confirmDel=null;toast('Not changed. '+errMsg(err));renderEntries()}
+}
+
+/* ---------- customers view ---------- */
+function renderCustomers(){
+  const q=$('cSearch').value.trim().toLowerCase();
+  const list=Object.values(state.customers).filter(c=>!q||`${c.name} ${c.phone} ${c.address}`.toLowerCase().includes(q))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  $('custList').innerHTML=list.length?list.map(c=>{
+    const n=entriesOf(c.phone).length;
+    return `<article class="entry" data-phone="${esc(c.phone)}">
+      <div class="top"><span class="chip ${c.offerUsed?'':'offer'}">${c.offerUsed?'Offer used':'Offer available'}</span><time>${n} ${n===1?'entry':'entries'}</time></div>
+      <div class="who">${esc(c.name)} · <span class="num">${esc(fmtPhone(c.phone||''))}</span></div>
+      <div class="det">${esc(c.address)}</div>
+      <div class="acts"><button class="btn small ghost" data-act="newfor" type="button">New entry for this customer</button></div>
+    </article>`}).join(''):`<div class="empty">${q?'No customer matches the search.':(state.loaded?'No customers yet. They are added when you save the first entry.':'Loading from the Google Sheet…')}</div>`;
+}
+
+/* ---------- rates view ---------- */
+function renderRatesForm(){
+  const r=state.rates;
+  const n=(id,val,label)=>`<div class="field"><label for="${id}">${label}</label><input id="${id}" type="number" min="0" inputmode="decimal" value="${val}"></div>`;
+  $('ratesForm').innerHTML=`
+   <h3>Offer</h3><div class="ratesgrid">${n('r_disc',r.discountPct,'First-order discount (%)')}${n('r_med',r.medicine,'Medicine extra (₹)')}</div>
+   <h3>Town Fetch service charge</h3><div class="ratesgrid">${r.fetch.map((t,i)=>t.upto==null?
+      `<div class="field"><label for="r_fc${i}">Above ₹${r.fetch[i-1].upto}, charge (₹)</label><input id="r_fc${i}" type="number" min="0" value="${t.charge}"></div>`:
+      `${n('r_fu'+i,t.upto,'Order up to (₹)')}${n('r_fc'+i,t.charge,'Charge (₹)')}`).join('')}</div>
+   <h3>Bike Taxi fare</h3><div class="ratesgrid">${r.ride.map((b,i)=>`${n('r_rk'+i,b.km,'Up to (km)')}${n('r_rd'+i,b.day,'Day fare (₹)')}${n('r_rn'+i,b.night,'Night fare (₹)')}`).join('')}</div>
+   <h3>Waiting, per 15 min</h3><div class="ratesgrid">${n('r_wd',r.wait.day,'Day (₹)')}${n('r_wn',r.wait.night,'Night (₹)')}${n('r_ns',r.nightStart,'Night starts (hour, 0–23)')}${n('r_ne',r.nightEnd,'Night ends (hour, 0–23)')}</div>
+   <h3>Riders</h3><div class="field" style="margin-bottom:14px"><label for="r_riders">Names, separated by commas</label><input id="r_riders" value="${esc(r.riders.join(', '))}"></div>`;
+}
+function readRates(){
+  const g=id=>Math.max(0,+$(id).value||0),r=clone(state.rates);
+  r.discountPct=Math.min(100,g('r_disc'));r.medicine=g('r_med');
+  r.fetch=r.fetch.map((t,i)=>({upto:t.upto==null?null:g('r_fu'+i),charge:g('r_fc'+i)}));
+  r.ride=r.ride.map((b,i)=>({km:g('r_rk'+i),day:g('r_rd'+i),night:g('r_rn'+i)}));
+  r.wait={day:g('r_wd'),night:g('r_wn')};r.nightStart=Math.min(23,g('r_ns'));r.nightEnd=Math.min(23,g('r_ne'));
+  const names=$('r_riders').value.split(',').map(s=>s.trim()).filter(Boolean);r.riders=names.length?names:['Rider 1'];
+  return r;
+}
+async function putRates(r){
+  if(!state.cfg||!state.loaded){toast('Connect to the Google Sheet first.');return}
+  try{await write(()=>api('saveRates',{rates:r}));state.rates=r;fillSelects();renderRatesForm();refresh();toast('Rates saved in the sheet.')}
+  catch(e){toast('Not saved. '+errMsg(e))}
+}
+
+/* ---------- export ---------- */
+function csv(rows){return '﻿'+rows.map(r=>r.map(x=>{const s=String(x==null?'':x);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\r\n')}
+function download(name,text){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);
+}
+function exportEntries(){
+  const head=['Date','Time','Type','Customer','Phone','Address','Details','Items cost','Distance km','Night','Return trip','Waiting blocks','Base charge','Offer discount','Service charge','Total','Payment','Rider','Status','First-order offer'];
+  const rows=[head].concat(state.entries.slice().reverse().map(e=>{const d=new Date(e.when);return[d.toLocaleDateString('en-CA'),d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),e.type==='fetch'?'Town Fetch':'Bike Taxi',e.name,e.phone,e.address,e.details,e.itemCost||0,e.distance||'',e.night?'Yes':'No',e.round?'Yes':'No',e.waitBlocks||0,e.baseCharge||0,e.discount||0,e.service||0,e.total||0,e.payment,e.rider,e.status,e.firstOffer?'Yes':'No']}));
+  download('VKT_Riders_Entries_'+new Date().toLocaleDateString('en-CA')+'.csv',csv(rows));
+}
+function exportCustomers(){
+  const rows=[['Name','Phone','Address','Offer used','Entries','Registered']].concat(Object.values(state.customers).map(c=>[c.name,c.phone,c.address,c.offerUsed?'Yes':'No',entriesOf(c.phone).length,(c.createdAt||'').slice(0,10)]));
+  download('VKT_Riders_Customers_'+new Date().toLocaleDateString('en-CA')+'.csv',csv(rows));
+}
+
+/* ---------- setup ---------- */
+async function connect(){
+  const url=$('cfgUrl').value.trim(),pin=$('cfgPin').value.trim();
+  if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)){toast('The web app link must start with https://script.google.com and end with /exec.');return}
+  if(!pin){toast('Enter the PIN.');return}
+  const cfg={url,pin};$('cfgBtn').disabled=true;$('cfgBtn').textContent='Testing…';
+  try{
+    const j=await api('load',null,cfg);
+    try{localStorage.setItem('vkt_cfg',JSON.stringify(cfg))}catch(e){}
+    state.cfg=cfg;applyLoad(j);setSync(true);fillSelects();todayLine();$('banner').hidden=true;refresh();renderCfg();
+    toast('Connected to your Google Sheet.');show('new');
+  }catch(e){toast('Not connected. '+errMsg(e))}
+  finally{$('cfgBtn').disabled=false;$('cfgBtn').textContent='Save and test connection'}
+}
+function renderCfg(){
+  const fixed=state.cfg&&state.cfg.fixed;
+  $('cfgState').textContent=state.cfg?(fixed?'Connected (link and PIN are built into this page).':'Connected on this device.'):'Not connected yet.';
+  $('cfgForm').hidden=!!fixed;$('cfgOff').hidden=!state.cfg||!!fixed;
+  if(state.cfg&&!fixed){$('cfgUrl').value=state.cfg.url;$('cfgPin').value=state.cfg.pin}
+}
+function disconnect(){
+  try{localStorage.removeItem('vkt_cfg')}catch(e){}
+  state.cfg=null;state.loaded=false;state.entries=[];state.customers={};setSync(false);renderCfg();refresh();toast('Disconnected from this device.');
+}
+
+/* ---------- navigation ---------- */
+function show(view){
+  state.view=view;
+  for(const v of['new','entries','customers','rates','setup']){$('v-'+v).hidden=v!==view;$('t-'+v).setAttribute('aria-selected',v===view)}
+  try{history.replaceState(null,'','#'+view)}catch(e){}
+  if(view==='entries')renderEntries();if(view==='customers')renderCustomers();if(view==='rates')renderRatesForm();if(view==='setup')renderCfg();
+}
+function todayLine(){
+  const now=new Date(),list=state.entries.filter(e=>sameDay(new Date(e.when),now));
+  $('todayLine').textContent=`Today: ${list.length} ${list.length===1?'entry':'entries'} · ${inr(list.reduce((s,e)=>s+(e.service||0),0))} income`;
+}
+
+/* ---------- start ---------- */
+function bind(){
+  document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
+  $('ty-fetch').addEventListener('click',()=>setType('fetch'));$('ty-ride').addEventListener('click',()=>setType('ride'));
+  for(const id of['phone','name','address','details','cost','medicine','pickup','drop','band','wait','round','when','payment','rider'])$(id).addEventListener('input',refresh);
+  $('phone').addEventListener('input',()=>{state.applyOffer=true});
+  $('saveBtn').addEventListener('click',save);$('clearBtn').addEventListener('click',resetForm);
+  for(const id of['fPeriod','fType','fSearch'])$(id).addEventListener('input',renderEntries);
+  $('cSearch').addEventListener('input',renderCustomers);
+  $('entryList').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;entryAct(b.closest('.entry').dataset.id,b.dataset.act)});
+  $('custList').addEventListener('click',e=>{const b=e.target.closest('[data-act="newfor"]');if(!b)return;
+    const c=Object.values(state.customers).find(x=>x.phone===b.closest('.entry').dataset.phone);if(!c)return;
+    show('new');$('phone').value=c.phone;$('name').value=c.name||'';$('address').value=c.address||'';state.filledFor=c.phone;state.applyOffer=true;refresh();$('details').focus()});
+  $('saveRates').addEventListener('click',()=>putRates(readRates()));
+  $('resetRates').addEventListener('click',()=>putRates(clone(DEFAULT_RATES)));
+  $('exEntries').addEventListener('click',exportEntries);$('exCustomers').addEventListener('click',exportCustomers);
+  $('cfgBtn').addEventListener('click',connect);$('cfgOff').addEventListener('click',disconnect);
+  $('syncNow').addEventListener('click',()=>sync(false));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true)});
+  setInterval(()=>{if(!document.hidden)sync(true)},30000);
+}
+function start(){
+  bind();$('when').value=localInput(new Date());fillSelects();setType('fetch');
+  state.cfg=getCfg();setSync(false);renderCfg();
+  const h=(location.hash||'').replace('#','');
+  if(!state.cfg){show('setup');$('banner').hidden=false;$('banner').textContent='Not connected to your Google Sheet yet. Follow the steps below.';return}
+  if(['entries','customers','rates'].includes(h))show(h);
+  sync(false);
+}
+start();
+})();
+
+</script>
+</body></html>
